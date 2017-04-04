@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import sys
-
 sys.path.append("g:\\Github\\iapws")
 from iapws import IAPWS97
+import math
 
 """这是本人的一个练习项目
 旨在计算本人自然循环回路内的各项压降情况，采用分相流模型
@@ -21,85 +21,142 @@ from iapws import IAPWS97
    p_moca_ss 上升环隙内的摩擦压降
 """
 
+moshi=input('please select the calcultion mode: zuli or qudongli or qiujie:')
+quality_x = input('input the initial quality in the center tube:')  # mass quality in the center tube
+m_min = input('please input the minimal flow rate:')  # kg/s, mass flow rate
+m_max = input('Then the maximal flow rate:')
+q = input('input heating power 100~10000:')  # W, heating power
 
-quality_x = input('input the quality in the center tube:')  # mass quality in the center tube
-DP_loop = 0.1 # Pa
 H_zx=2.9 # length of the center tube
 H_qb=0.1 # height in the drum
 H_jr=1.4 # height of the heating section
 H_ss=3.0 #height of risng section H_ss should be the sum of H_zx and H_qb
+water_sat=IAPWS97(T=100+273.15,x=0)
+steam_sat=IAPWS97(T=100+273.15,x=1)
+p_zhongwei_qb=9.8*H_qb/water_sat.v
 
-def main():
-    moshi=input('please select the calcultion mode: zuli or qudongli or qiujie:')
-    if moshi=='zuli':
-        m_min = input('please input the minimal flow rate:')  # kg/s, mass flow rate
-        m_max = input('Then the maximal flow rate:')
-        q = input('heating power 100~10000:')  # W, heating power
-        zuli_hx(m_min,m_max,q)
-    elif moshi=='qudongli':
-        m_min = input('please input the minimal flow rate:')
-        m_max = input('Then the maximal flow rate:')
-        qudong_zx(m_min,m_max)
-    elif moshi=='qiujie':
-        solve()
-    else:
-        print('Input Erro')
 
-def qudong_zx(m_min,m_max): # dring force in the center tube
+
+def qudong_zx(mina,maxa): # dring force in the center tube
     results={}
-    while i> m_min and i<m_max:
-        1_cache=p_zhongwei_zx(i)-p_moca_zx(i)+p_zhongwei_qb()
-        results[i]=1_cache
+    i=mina
+    while  mina <i<maxa:
+        p_cache=p_zhongwei_zx(i)-p_moca_zx(i)+p_zhongwei_qb
+        results[i]=p_cache
         i=i+0.001
     with open('results','w') as f:
         for item in results:
             f.write(str(item)+' '+str(results[item])+'\n')
 
-def zuli_hx(m_min,m_max,Q): # resistance in the annulus
+def zuli_hx(mina,maxa): # resistance in the annulus
     results={}
-    while i>m_min and i<m_max:
-        2_chache=p_zhongwei_jr(i)+p_moca_jr(i)+p_jiasu_jr(i)+p_zhongwei_ss(i)+p_moca_ss(i)
-        results[i]=2_cache
+    i=mina
+    while  mina <i<maxa:
+        p_cache=p_zhongwei_jr(i)+p_moca_jr(i)+p_jiasu_jr(i)+p_zhongwei_ss(i)+p_moca_ss(i)
+        results[i]=p_cache
         i=i+0.001
     with open('results','w') as f:
         for item in results:
             f.write(str(item)+' '+str(results[item])+'\n')
 
 def p_zhongwei_zx(m):
-    pass
+    g_=m / (3.1415 / 4 * 0.01 ** 2)
+    alpha=voidfraction(quality_x,g_)
+    return 9.8*H_zx*(alpha/steam_sat.v+(1-alpha)/water_sat.v)
 
 
 def p_moca_zx(m):
-    pass
+    g_ = m / (3.1415 / 4 * 0.01 ** 2)
+    return H_zx*c_zhesuan(quality_x,g_,0.01)
 
 
 def p_zhongwei_jr(m):
-    pass
+    result=0
+    for z in range(0,H_jr,0.01):
+        dx=0.01
+        quality_jr_out = q / 2257.2 / 1000 / m + quality_x
+        x_z=quality_x+z/H_jr*(quality_jr_out-quality_x)
+        x_z2=quality_x+(z+dx)/H_jr*(quality_jr_out-quality_x)
+        g_ = m / (3.1415 / 4 * (0.0224 ** 2 - 0.0127 ** 2))
+        alpha=voidfraction(x_z,g_)
+        alpha2=voidfraction(x_z2,g_)
+        y1=(alpha/steam_sat.v+(1-alpha)/water_sat.v)*9.8
+        y2=(alpha2/steam_sat.v+(1-alpha2)/water_sat.v)*9.8
+        y=(y1+y2)/2
+        result=y*dx+result
+    return result
 
 
 def p_moca_jr(m):
-    pass
-
+    quality_jr_out=q/2257.2/1000/m+quality_x
+    quality_x_aver=(quality_jr_out+quality_x)/2
+    g_ = m / (3.1415 / 4 * (0.0224**2-0.0127** 2))
+    return H_jr*c_zhesuan(quality_x_aver,g_,0.0097)
 
 def p_jiasu_jr(m):
-    pass
+    quality_jr_out = q / 2257.2 / 1000 / m + quality_x
+    g_ = m / (3.1415 / 4 * (0.0224 ** 2 - 0.0127 ** 2))
+    alpha1 =voidfraction(quality_x,g_)
+    alpha2 = voidfraction(quality_jr_out, g_)
+    k1=(1-quality_jr_out)**2*water_sat.v/(1-alpha2)+quality_jr_out**2*steam_sat.v/alpha2
+    k2=(1-quality_x)**2*water_sat.v/(1-alpha1)+quality_x**2*steam_sat.v/alpha1
+    return g_**2*(k1-k2)
 
 
 def p_zhongwei_ss(m):
-    pass
+    g_ = m / (3.1415 / 4 * (0.0224 ** 2 - 0.0127 ** 2))
+    quality_jr_out = q / 2257.2 / 1000 / m + quality_x
+    alpha = voidfraction(quality_jr_out, g_)
+    return 9.8 * H_ss * (alpha / steam_sat.v + (1 - alpha) / water_sat.v)
 
 
 def p_moca_ss(m):
-    pass
+    quality_jr_out = q / 2257.2 / 1000 / m + quality_x
+    g_ = m / (3.1415 / 4 * (0.0224 ** 2 - 0.0127 ** 2))
+    return H_ss * c_zhesuan(quality_jr_out, g_, 0.0097)
 
+def voidfraction(x,g_):
+    u_zhesuan_g = g_ * x * steam_sat.v
+    u_zhesuan_l = g_ * (1 - x) * water_sat.v
+    k1=u_zhesuan_g*(1+(u_zhesuan_l/u_zhesuan_g)**((water_sat.v/steam_sat.v)**0.1))
+    k2=2.9*(9.8*0.0589*(water_sat.v-water_sat.v**2/steam_sat.v)**0.25
+    return u_zhesuan_g*(k1+k2)**-1
 
-def p_zhongwei_qb():
-    pass
+def c_zhesuan(x,g_,dh):
+    rel = (1 - x) * g_ * dh/ water_sat.mu
+    reg = x * g_ * dh / water_sat.mu
+    if rel<=2200:
+        friction_l=64/float(rel)
+    else:
+        friction_l= 0.3164 * rel ** -0.25
+    if reg<=2200:
+        friction_g=64/float(reg)
+    else:
+        friction_g= 0.3164 * reg ** -0.25
+    tidu_l=friction_l/dh*g_**2/2*(1-x)**2*water_sat.v
+    tidu_g=friction_g/dh*g_**2/2*x**2*water_sat.v
+    Ma=(tidu_l/tidu_g)**0.5
+    k1=water_sat.v/steam_sat.v*(water_sat.mu/steam_sat.mu)**0.2
+    k2=math.exp(-(math.log(k1,math.e))**2/(2.4-g_*10**-4))
+    c=-2+(28-0.3*g_**0.5)*k2
+    return (1+c/Ma+1/Ma**2)*tidu_l
 
 
 def solve():
-    while DP_loop > 1E-3:
+    dp_loop = 0.1  # Pa
+    while dp_loop > 1E-3:
         m = m + 1E-3
-        DP_loop = p_zhongwei_zx(m) - p_moca_zx(m) - p_zhongwei_jr(m) - p_moca_jr(m) - p_jiasu_jr(m) \
-                  - p_zhongwei_ss(m) - p_moca_ss(m)+p_zhongwei_qb()
-     return m
+        dp_loop = p_zhongwei_zx(m) - p_moca_zx(m) - p_zhongwei_jr(m) - p_moca_jr(m) - p_jiasu_jr(m)\
+                  - p_zhongwei_ss(m) - p_moca_ss(m) + p_zhongwei_qb
+    return m
+
+if moshi=='zuli':
+    zuli_hx(m_min,m_max,q)
+elif moshi=='qudongli':
+    m_min = input('please input the minimal flow rate:')
+    m_max = input('Then the maximal flow rate:')
+    qudong_zx(m_min,m_max)
+elif moshi=='qiujie':
+    solve()
+else:
+    print('Input Erro')
