@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import math
+from numpy import arange
 sys.path.append("g:\\Github\\iapws")
 from iapws import IAPWS97
 
@@ -21,6 +22,18 @@ with open('niu.txt','w') as f:
     for item in student:
         f.write(str(item)+' '+str(student[item])+'\n')
 water_sat=IAPWS97(T=100+273.15,x=0)
-print('hahah')
+
 print(water_sat.Prandt)
 print(math.e)
+h=1.4
+print(type(h))
+water_sat = IAPWS97(T=100 + 273.15, x=0)
+steam_sat = IAPWS97(T=100 + 273.15, x=1)
+print('hahah')
+g_=500.0
+u_zhesuan_g=10.0
+u_zhesuan_l=0.4
+k = (water_sat.v / steam_sat.v) ** 0.1
+k1 = u_zhesuan_g * (1 + (u_zhesuan_l / u_zhesuan_g) ** k)
+k2 = 2.9 * (9.8 * 0.0589 * (water_sat.v - water_sat.v ** 2 / steam_sat.v)) ** 0.25
+print(u_zhesuan_g * (k1 + k2) ** -1)
